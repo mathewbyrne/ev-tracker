@@ -35,6 +35,8 @@ class EvSet(object):
     
     def verbose(self):
         ev_string = ['%s: %d' % (stat, ev) for stat, ev in self.evs.items()]
+        if not len(ev_string):
+            return 'No EVs'
         return '\n'.join(ev_string)
     
     def json(self):
@@ -130,6 +132,15 @@ class Pokemon(object):
         else:
             return '%d %s' % (self.id, name)
     
+    def status(self):
+        status = [str(self)]
+        if self.pokerus:
+            status.append('Pokerus')
+        if self.item:
+            status.append(self.item)
+        status.append(self.evs.verbose())
+        return '\n'.join(status)
+    
     def listing(self, active):
         padding = '* ' if self is active else '  '
         return '%s%s' % (padding, self)
@@ -193,7 +204,6 @@ class Tracker(object):
         self._active = pokemon
     
     def get_pokemon(self, id):
-        id = int(id)
         if id not in self.pokemon.keys():
             raise NoTrackedPokemon(id)
         return self.pokemon[id]
@@ -275,9 +285,9 @@ def _cmd_active(args):
 
 def _cmd_status(args):
     if args.id is None:
-        pokemon = _tracker.get_pokemon(args.id)
-    else:
         pokemon = _tracker.active
+    else:
+        pokemon = _tracker.get_pokemon(args.id)
     print pokemon.status()
 
 
@@ -311,7 +321,7 @@ def _build_parser():
     active_parser.set_defaults(func=_cmd_active)
     
     status_parser = subparsers.add_parser('status', help='Show the status of the active Pokemon')
-    status_parser.add_argument('--id', type=int)
+    status_parser.add_argument('--id', '-i', type=int)
     status_parser.set_defaults(func=_cmd_status)
     
     release_parser = subparsers.add_parser('release', help='Stop tracking a Pokemon')
