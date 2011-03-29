@@ -96,9 +96,17 @@ As with the other commands, you can refer to a Pokemon species by number:
 	> Battled #568 Trubbish  +1 Speed
 	> 1 Ultrados (Magikarp) - +8 Attack, +2 Speed
 
+To stop tracking a Pokemon, use the `release` command:
+	
+	ev.py release 2
+	> Stopped tracking Axew
+
 ## EV Calculations
 
-I'm still fairly new to min/max Pokemon training, but my understanding of 
+I'm still new to Pokemon EV training, but Effort Values for each battle are
+calculated as such:
+
+	ev[stat] = (pokemon.evs[stat] + item.evs[stat]) * pokerus
 
 ## Storage
 
