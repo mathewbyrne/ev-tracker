@@ -36,7 +36,7 @@ class Species(object):
         self.evs = evs if isinstance(evs, EvSet) else EvSet(evs)
     
     def __repr__(self):
-        return '#%03d %s - %s' % (self.number, self.name, self.evs)
+        return '#%03d %-10s %s' % (self.number, self.name, self.evs)
 
 
 class NoSuchSpecies(Exception):
@@ -164,11 +164,11 @@ if __name__ == '__main__':
         args = _build_parser().parse_args()
         args.func(args)
     except NoSuchSpecies as e:
-        print 'No match found for %s' % e.identifier
+        print 'No match found for \'%s\'' % e.identifier
         if isinstance(e, AmbiguousSpecies):
             print 'Did you mean:'
             for match in e.matches:
-                print _dict.name[match]
+                print '  %s' % _dict.name[match]
     
     _tracker.save()
 
