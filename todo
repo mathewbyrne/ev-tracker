@@ -1,0 +1,15 @@
+Commands:
+✓ ev
+✓ list
+✓ current
+✓ track
+- status
+- update
+- battle
+
+
+Future Commands:
+- undo - undo the previous command.
+- history - record past battles/changes for a pokemon.
+- vitamin - boost EVs with vitamins, some business rules here to work with.
+
