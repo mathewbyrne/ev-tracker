@@ -1,4 +1,5 @@
 #!/usr/local/bin/python
+# coding=utf-8
 
 
 import os
@@ -23,10 +24,12 @@ class EvSet(object):
                 self.evs[stat] = int(ev)
     
     def __str__(self):
-        ev_string = []
-        for stat, ev in self.evs.items():
-            ev_string.append('+%d %s' % (ev, stat))
+        ev_string = ['+%d %s' % (ev, stat) for stat, ev in self.evs.items()]
         return ', '.join(ev_string)
+    
+    def verbose(self):
+        ev_string = ['%s: %d' % (stat, ev) for stat, ev in self.evs.items()]
+        return '\n'.join(ev_string)
     
     def json(self):
         return self.evs
@@ -104,7 +107,8 @@ class EvDict(object):
 
 class Pokemon(object):
     
-    def __init__(self, species, name=None, item=None, pokerus=False, evs=None):
+    def __init__(self, species, name=None, item=None, pokerus=False, evs=None, id=None):
+        self.id = id
         self.species = species
         self.name = name if name is not None else species.name
         self.item = item
@@ -115,7 +119,11 @@ class Pokemon(object):
         name = self.name
         if self.species.name != name:
             name = '%s (%s)' % (name, species.name)
-        return name
+        return '%d %s' % (self.id, name)
+    
+    def listing(self, current):
+        padding = '* ' if self is current else '  '
+        return '%s%s' % (padding, self)
     
     def json(self):
         return {'species': self.species.number, 'name': self.name,
@@ -132,11 +140,14 @@ class Tracker(object):
         try:
             fp = open(filename, 'r')
             data = json.load(fp)
-            tracker.current = data['current']
-            for id, pokemon in data['pokemon'].items():
-                pokemon['species'] = ev_dict.number[pokemon['species']]
-                pokemon['evs'] = EvSet(pokemon['evs'])
-                tracker.track_pokemon(Pokemon(**pokemon))
+            for id, spec in data['pokemon'].items():
+                spec['species'] = ev_dict.number[spec['species']]
+                spec['evs'] = EvSet(spec['evs'])
+                spec['id'] = int(id)
+                pokemon = Pokemon(**spec)
+                tracker.track_pokemon(pokemon)
+                if 'current' in data.keys() and data['current'] == int(id):
+                    tracker.current = pokemon
         except IOError:
             pass  # Ignore missing tracking file.
         
@@ -145,7 +156,7 @@ class Tracker(object):
     @staticmethod
     def to_json(tracker, filename):
         fp = open(filename, 'w')
-        data = {'current': tracker.current, 'pokemon': {}}
+        data = {'current': tracker.current.id, 'pokemon': {}}
         for id, pokemon in tracker.pokemon.items():
             data['pokemon'][id] = pokemon.json()
         json.dump(data, fp)
@@ -155,19 +166,23 @@ class Tracker(object):
     
     def __init__(self):
         self.current = None
-        self.counter = 0
+        self.counter = 1
+    
+    def unique_id(self):
+        while self.counter in self.pokemon.keys():
+            self.counter += 1
+        return self.counter
     
     def track_pokemon(self, pokemon):
-        self.counter += 1
-        self.pokemon[self.counter] = pokemon
+        if pokemon.id is None:
+            pokemon.id = self.unique_id()
+        self.pokemon[pokemon.id] = pokemon
         if self.current is None:
-            self.current = self.counter
-        return '%d %s' % (self.counter, pokemon)
+            self.current = pokemon
     
     def __str__(self):
         if len(self.pokemon):
-            return '\n'.join(['%d %s' % (id, pokemon)
-                              for id, pokemon in self.pokemon.items()])
+            return '\n'.join([pokemon.listing(self.current) for pokemon in self.pokemon.values()])
         else:
             return 'No tracked Pokemon'
 
@@ -175,6 +190,10 @@ class Tracker(object):
 _ev_dict = EvDict.from_csv('ev.csv')
 _tracker_filename = os.path.expanduser('~/.ev-tracker')
 _tracker = Tracker.from_json(_tracker_filename, _ev_dict)
+
+
+def _save_tracker():
+    Tracker.to_json(_tracker, _tracker_filename)
 
 
 def _cmd_ev(args):
@@ -185,15 +204,27 @@ def _cmd_list(args):
     print _tracker
 
 
+def _cmd_current(args):
+    if args.switch:
+        _tracker.current = _tracker.pokemon[int(args.switch)]
+        _save_tracker()
+    print _tracker.current
+
+
 def _cmd_track(args):
     species = _ev_dict.search(args.species)
     pokemon = Pokemon(species=species, name=args.name)
-    print _tracker.track_pokemon(pokemon)
-    Tracker.to_json(_tracker, _tracker_filename)
+    _tracker.track_pokemon(pokemon)
+    print pokemon
+    _save_tracker()
 
 
 def _cmd_remove(args):
-    pokemon = _tracker.find(args.id)
+    try:
+        pokemon = _tracker.pokemon[int(args.id)]
+        _save_tracker()
+    except KeyError:
+        print 'No Pokemon being tracked with id %s' % args.id
 
 
 def _build_parser():
@@ -206,6 +237,10 @@ def _build_parser():
     
     list_parser = subparsers.add_parser('list', help='List tracked Pokemon')
     list_parser.set_defaults(func=_cmd_list)
+    
+    current_parser = subparsers.add_parser('current', help='List the active Pokemon')
+    current_parser.add_argument('--switch', '-s', help='Switch the active Pokemon')
+    current_parser.set_defaults(func=_cmd_current)
     
     track_parser = subparsers.add_parser('track', help='Add a Pokemon to track')
     track_parser.add_argument('species')
