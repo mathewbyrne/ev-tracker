@@ -1,6 +1,7 @@
 #!/usr/local/bin/python
 
 
+import os
 import csv
 import argparse
 import hashlib
@@ -21,11 +22,14 @@ class EvSet(object):
             if stat in EvSet.STATS and int(ev) > 0:
                 self.evs[stat] = int(ev)
     
-    def __repr__(self):
+    def __str__(self):
         ev_string = []
         for stat, ev in self.evs.items():
             ev_string.append('+%d %s' % (ev, stat))
         return ', '.join(ev_string)
+    
+    def json(self):
+        return self.evs
 
 
 class Species(object):
@@ -35,7 +39,7 @@ class Species(object):
         self.name = name
         self.evs = evs if isinstance(evs, EvSet) else EvSet(evs)
     
-    def __repr__(self):
+    def __str__(self):
         return '#%03d %-10s %s' % (self.number, self.name, self.evs)
 
 
@@ -55,13 +59,18 @@ class AmbiguousSpecies(NoSuchSpecies):
 
 class EvDict(object):
     
-    def __init__(self, filename='ev.csv'):
-        self._name = {}
-        self._number = {}
+    @classmethod
+    def from_csv(cls, filename):
+        ev_dict = cls()
         for row in csv.reader(open(filename, 'rb')):
             number, name = row[:2]
             evs = dict(zip(EvSet.STATS, map(int, row[2:8])))  # array_combine
-            self.add_species(Species(number, name, evs))
+            ev_dict.add_species(Species(number, name, evs))
+        return ev_dict
+    
+    def __init__(self):
+        self._name = {}
+        self._number = {}
     
     def add_species(self, species):
         self._name[species.name.lower()] = species
@@ -79,68 +88,112 @@ class EvDict(object):
         """
         if identifier.isdigit():
             try:
-                return self.number[int(identifier)]
+                return self._number[int(identifier)]
             except KeyError:
                 raise NoSuchSpecies(identifier)
         else:
             try:
-                return self.name[identifier]
+                return self._name[identifier.lower()]
             except KeyError:
-                matches = difflib.get_close_matches(identifier, self.name.keys(), n=3)
+                matches = difflib.get_close_matches(identifier, self._name.keys(), n=3)
                 if len(matches) == 0:
                     raise NoSuchSpecies(identifier)
                 else:
                     raise AmbiguousSpecies(identifier, matches)
 
 
-_dict = EvDict()
-
-
 class Pokemon(object):
     
-    _counter = 0
-    
-    def __init__(self, species, name=None, item=None, pokerus=False):
+    def __init__(self, species, name=None, item=None, pokerus=False, evs=None):
         self.species = species
         self.name = name if name is not None else species.name
-        self.id = hashlib.sha1('%s%d' % (self.name, Pokemon._counter)).hexdigest()
         self.item = item
         self.pokerus = pokerus
+        self.evs = EvSet() if evs is None else evs
     
-    def __repr__(self):
-        return '%s %s' % (self.id, self.name)
+    def __str__(self):
+        name = self.name
+        if self.species.name != name:
+            name = '%s (%s)' % (name, species.name)
+        return name
+    
+    def json(self):
+        return {'species': self.species.number, 'name': self.name,
+                'pokerus': self.pokerus, 'item': self.item,
+                'evs': self.evs.json()}
 
 
 class Tracker(object):
     
-    def __init__(self, filename):
-        self.filename = filename
+    @classmethod
+    def from_json(cls, filename, ev_dict):
+        tracker = cls()
         
         try:
             fp = open(filename, 'r')
+            data = json.load(fp)
+            tracker.current = data['current']
+            for id, pokemon in data['pokemon'].items():
+                pokemon['species'] = ev_dict.number[pokemon['species']]
+                pokemon['evs'] = EvSet(pokemon['evs'])
+                tracker.track_pokemon(Pokemon(**pokemon))
         except IOError:
-            pass
+            pass  # Ignore missing tracking file.
+        
+        return tracker
     
-    def add_pokemon(self, pokemon):
-        pass
-    
-    def save(self):
-        fp = open(self.filename, 'w')
-        json.dump({}, fp)
+    @staticmethod
+    def to_json(tracker, filename):
+        fp = open(filename, 'w')
+        data = {'current': tracker.current, 'pokemon': {}}
+        for id, pokemon in tracker.pokemon.items():
+            data['pokemon'][id] = pokemon.json()
+        json.dump(data, fp)
         fp.close()
+    
+    pokemon = {}
+    
+    def __init__(self):
+        self.current = None
+        self.counter = 0
+    
+    def track_pokemon(self, pokemon):
+        self.counter += 1
+        self.pokemon[self.counter] = pokemon
+        if self.current is None:
+            self.current = self.counter
+        return '%d %s' % (self.counter, pokemon)
+    
+    def __str__(self):
+        if len(self.pokemon):
+            return '\n'.join(['%d %s' % (id, pokemon)
+                              for id, pokemon in self.pokemon.items()])
+        else:
+            return 'No tracked Pokemon'
 
 
-_tracker = Tracker(filename='tracker.json')
-            
+_ev_dict = EvDict.from_csv('ev.csv')
+_tracker_filename = os.path.expanduser('~/.ev-tracker')
+_tracker = Tracker.from_json(_tracker_filename, _ev_dict)
+
 
 def _cmd_ev(args):
-    print _dict.search(args.species)
+    print _ev_dict.search(args.species)
 
 
-def _cmd_add(args):
-    species = _dict.get_species(args.species)
+def _cmd_list(args):
+    print _tracker
+
+
+def _cmd_track(args):
+    species = _ev_dict.search(args.species)
     pokemon = Pokemon(species=species, name=args.name)
-    print pokemon
+    print _tracker.track_pokemon(pokemon)
+    Tracker.to_json(_tracker, _tracker_filename)
+
+
+def _cmd_remove(args):
+    pokemon = _tracker.find(args.id)
 
 
 def _build_parser():
@@ -151,10 +204,17 @@ def _build_parser():
     ev_parser.add_argument('species', help='Name or number of Pokemon Species to search for')
     ev_parser.set_defaults(func=_cmd_ev)
     
-    add_parser = subparsers.add_parser('add', help='Add a Pokemon to track')
-    add_parser.add_argument('species')
-    add_parser.add_argument('--name')
-    add_parser.set_defaults(func=_cmd_add)
+    list_parser = subparsers.add_parser('list', help='List tracked Pokemon')
+    list_parser.set_defaults(func=_cmd_list)
+    
+    track_parser = subparsers.add_parser('track', help='Add a Pokemon to track')
+    track_parser.add_argument('species')
+    track_parser.add_argument('--name')
+    track_parser.set_defaults(func=_cmd_track)
+    
+    remove_parser = subparsers.add_parser('remove', help='Stop tracking a Pokemon')
+    remove_parser.add_argument('id')
+    remove_parser.set_defaults(func=_cmd_remove)
     
     return parser
 
@@ -168,7 +228,5 @@ if __name__ == '__main__':
         if isinstance(e, AmbiguousSpecies):
             print 'Did you mean:'
             for match in e.matches:
-                print '  %s' % _dict.name[match]
-    
-    _tracker.save()
+                print '  %s' % _ev_dict.name[match]
 
