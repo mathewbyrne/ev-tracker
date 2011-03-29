@@ -5,11 +5,15 @@ import csv
 import argparse
 import hashlib
 import json
+import difflib
 
 
 class EvSet(object):
     
     STATS = ['HP', 'Attack', 'Defense', 'Special Attack', 'Special Defense', 'Speed']
+    
+    MAX_STAT = 255
+    MAX_EV = 510
     
     def __init__(self, evs={}):
         self.evs = {}
@@ -32,35 +36,61 @@ class Species(object):
         self.evs = evs if isinstance(evs, EvSet) else EvSet(evs)
     
     def __repr__(self):
-        return '%s - %s' % (self.name, self.evs)
+        return '#%03d %s - %s' % (self.number, self.name, self.evs)
 
 
 class NoSuchSpecies(Exception):
-    """Raised when a search for a pokemon species fails."""
-    def __init__(self, species):
-        super(NoSuchSpecies, self).__init__(self)
-        self.species = species
+    """Raised when a search for a Pokemon species fails."""
+    def __init__(self, identifier):
+        super(NoSuchSpecies, self).__init__()
+        self.identifier = identifier
+
+
+class AmbiguousSpecies(NoSuchSpecies):
+    """Raised when several matches are found for a Pokemon name search."""
+    def __init__(self, identifier, matches):
+        super(AmbiguousSpecies, self).__init__(identifier)
+        self.matches = matches
 
 
 class EvDict(object):
     
     def __init__(self, filename='ev.csv'):
-        self.name = {}
-        self.number = {}
-        
+        self._name = {}
+        self._number = {}
         for row in csv.reader(open(filename, 'rb')):
-            number = int(row[0])
-            name = row[1]
-            evs = dict(zip(EvSet.STATS, map(int, row[3:9])))  # array_combine
-            species = Species(number, name, evs)
-            
-            self.name[species.name.lower()] = self.number[species.number] = species
+            number, name = row[:2]
+            evs = dict(zip(EvSet.STATS, map(int, row[2:8])))  # array_combine
+            self.add_species(Species(number, name, evs))
     
-    def get_species(self, identifier):
-        try:
-            return self.number[int(identifier)] if identifier.isdigit() else self.name[identifier]
-        except KeyError:
-            raise NoSuchSpecies(identifier)
+    def add_species(self, species):
+        self._name[species.name.lower()] = species
+        self._number[species.number] = species
+    
+    name = property(lambda self: self._name, doc="A mapping of Species names.")
+    number = property(lambda self: self._number, doc="A mapping of Species numbers.")
+    
+    def search(self, identifier):
+        """
+        Search for a Pokemon species by a string identifier. The identifier
+        can be a string or integer value corresponding to the name or number 
+        of a species. If the string is a name, the search will attempt to find
+        close matches as well as an exact match.
+        """
+        if identifier.isdigit():
+            try:
+                return self.number[int(identifier)]
+            except KeyError:
+                raise NoSuchSpecies(identifier)
+        else:
+            try:
+                return self.name[identifier]
+            except KeyError:
+                matches = difflib.get_close_matches(identifier, self.name.keys(), n=3)
+                if len(matches) == 0:
+                    raise NoSuchSpecies(identifier)
+                else:
+                    raise AmbiguousSpecies(identifier, matches)
 
 
 _dict = EvDict()
@@ -104,7 +134,7 @@ _tracker = Tracker(filename='tracker.json')
             
 
 def _cmd_ev(args):
-    print _dict.get_species(args.species)
+    print _dict.search(args.species)
 
 
 def _cmd_add(args):
@@ -134,7 +164,11 @@ if __name__ == '__main__':
         args = _build_parser().parse_args()
         args.func(args)
     except NoSuchSpecies as e:
-        print 'No match found for %s' % e.species
+        print 'No match found for %s' % e.identifier
+        if isinstance(e, AmbiguousSpecies):
+            print 'Did you mean:'
+            for match in e.matches:
+                print _dict.name[match]
     
     _tracker.save()
 
