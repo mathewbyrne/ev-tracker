@@ -9,7 +9,7 @@ import difflib
 from pokemon import Species, EvSet
 
 
-__all__ = ['NoSuchSpecies', 'AmbiguousSpecies', 'fetch', 'search']
+__all__ = ['NoSuchSpecies', 'AmbiguousSpecies', 'fetch_by_id', 'fetch_by_name' 'search']
 
 
 _DB_FILE = os.path.join(os.path.dirname(__file__), 'pokedex.db')
@@ -25,12 +25,15 @@ class _SpeciesCache(object):
     def __init__(self):
         self._cache = {'id': {}, 'name': {}}
     
-    def search(key, value):
-        return self._cache[key][value]
+    def contains(self, field, value):
+        return (field in self._cache and value in self._cache[field])
     
-    def add(species):
+    def get(self, field, value):
+        return self._cache[field][value]
+    
+    def add(self, species):
         self._cache['id'][species.id] = species
-        self._cache['name'][species.name] = species
+        self._cache['name'][species.name.lower()] = species
 
 
 _cache = _SpeciesCache()
@@ -47,58 +50,63 @@ class AmbiguousSpecies(NoSuchSpecies):
     '''Raised when several matches are found for a Pokemon name search.'''
     def __init__(self, identifier, matches):
         super(AmbiguousSpecies, self).__init__(identifier)
-        self.matches = matches
-
-
-_SELECT_SQL = '''SELECT p.id AS id, name, ev_hp, ev_attack, ev_defense,
-                 ev_special_attack, ev_special_defense, ev_speed
-                 FROM pokemon AS p
-                 JOIN stats AS s ON p.id = s.pokemon_id
-                 WHERE %s = ?'''
-
-
-def _fetch(field, value):
-    assert(field in ['id', 'name'])
-    
-    try:
-        return _cache.search(field, value)
-    except KeyError:
-        pass
-    
-    rows = _connection.execute(SELECT_SQL % field, (value,)).fetchall()
-    
-    if len(rows) == 0:
-        raise NoSuchSpecies(value)
-    
-    return rows
+        self.matches = [fetch_by_name(match) for match in matches]
 
 
 def _name_list():
-    return [row[0] for row in _connection.execute('''SELECT name FROM pokemon''')]
+    return [row[0] for row in _connection.execute('SELECT name FROM pokemon')]
 
 
-def fetch(id=None, name=None):
-    '''
-    Fetch a Species object from the pokedex by either it's id or name. At 
-    least one value must be provided or an will be raised. id takes
-    precedence over name, and name will be ignored if it is specified.
-    '''
-    assert(id is not None or name is not None)
+def _fetch(field, value, sql):
     
-    rows = _fetch('id', id) if name is None else _fetch('name', name)
+    # Attempt to retrieve species from the cache.
+    if _cache.contains(field, value):
+        return _cache.get(field, value)
+    
+    # On cache failure, query the database given the provided data.
+    rows = _connection.execute(sql, (value,)).fetchall()
+    if len(rows) == 0:
+        raise NoSuchSpecies(value)
     row = rows[0]
     
-    evs = EvSet({'HP': row['ev_hp'],
-                 'Attack': row['ev_attack'],
-                 'Defense': row['ev_defense'],
-                 'Special Attack': row['ev_special_attack'],
-                 'Special Defense': row['ev_special_defense'],
-                 'Speed': row['ev_speed']})
+    # Build the Species object from the returned data.
+    evs = EvSet.from_dict({'HP': row['ev_hp'],
+                           'Attack': row['ev_attack'],
+                           'Defense': row['ev_defense'],
+                           'Special Attack': row['ev_special_attack'],
+                           'Special Defense': row['ev_special_defense'],
+                           'Speed': row['ev_speed']})
     species = Species(id=row['id'], name=row['name'], evs=evs)
     
     _cache.add(species)
     
     return species
+
+
+def fetch_by_id(id):
+    '''
+    Fetch a Species object from the pokedex by it's pokedex id. NoSuchSpecies 
+    will be raised if no match was found.
+    '''
+    return _fetch('id', int(id),
+                  '''SELECT p.id AS id, name, ev_hp, ev_attack, ev_defense,
+                     ev_special_attack, ev_special_defense, ev_speed
+                     FROM pokemon AS p
+                     JOIN stats AS s ON p.id = s.pokemon_id
+                     WHERE p.id = ?''')
+
+
+def fetch_by_name(name):
+    '''
+    Fetch a Species object from the pokedex by it's name. The fetch is case 
+    insensetive. NoSuchSpecies will be raised if no match was found.
+    '''
+    return _fetch('name', name.lower(),
+                  '''SELECT p.id AS id, name, ev_hp, ev_attack, ev_defense,
+                     ev_special_attack, ev_special_defense, ev_speed
+                     FROM pokemon AS p
+                     JOIN stats AS s ON p.id = s.pokemon_id
+                     WHERE lower(name) = ?''')
 
 
 def search(input):
@@ -111,13 +119,15 @@ def search(input):
     Will raise NoSuchSpecies if no match is found, or AmbiguousSpecies if 
     there are close matches, but nothing exact.
     '''
-    if input.isdigit():
-        return fetch(id=int(input))
+    # Direct number search
+    if type(input) == int or input.isdigit():
+        return fetch_by_id(input)
     else:
         try:
-            return fetch(name=input.lower())
+            return fetch_by_name(input)
         except NoSuchSpecies as e:
-            matches = difflib.get_close_matches(input, _name_list(), n=3)
+            # No exact match was found, try a fuzzy search.
+            matches = difflib.get_close_matches(input, _name_list())
             if len(matches) == 0:
                 raise e
             else:
