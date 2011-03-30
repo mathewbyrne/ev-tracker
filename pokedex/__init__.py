@@ -24,6 +24,7 @@ class _SpeciesCache(object):
     '''
     def __init__(self):
         self._cache = {'id': {}, 'name': {}}
+        self.names = None
     
     def contains(self, field, value):
         return (field in self._cache and value in self._cache[field])
@@ -54,7 +55,9 @@ class AmbiguousSpecies(NoSuchSpecies):
 
 
 def _name_list():
-    return [row[0] for row in _connection.execute('SELECT name FROM pokemon')]
+    if _cache.names is None:
+        _cache.names = [row[0] for row in _connection.execute('SELECT name FROM pokemon')]
+    return _cache.names
 
 
 def _fetch(field, value, sql):
