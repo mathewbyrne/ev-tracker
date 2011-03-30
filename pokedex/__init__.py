@@ -18,19 +18,19 @@ _connection.row_factory = sqlite3.Row
 
 
 class _SpeciesCache(object):
-	'''
-	A very simple caching mechanism for database species records. There are
-	kept in memory until requested again.
-	'''
-	def __init__(self):
-		self._cache = {'id': {}, 'name': {}}
-	
-	def search(key, value):
-		return self._cache[key][value]
-	
-	def add(species):
-		self._cache['id'][species.id] = species
-		self._cache['name'][species.name] = species
+    '''
+    A very simple caching mechanism for database species records. There are
+    kept in memory until requested again.
+    '''
+    def __init__(self):
+        self._cache = {'id': {}, 'name': {}}
+    
+    def search(key, value):
+        return self._cache[key][value]
+    
+    def add(species):
+        self._cache['id'][species.id] = species
+        self._cache['name'][species.name] = species
 
 
 _cache = _SpeciesCache()
@@ -62,8 +62,8 @@ def _fetch(field, value):
     
     try:
         return _cache.search(field, value)
-	except KeyError:
-		pass
+    except KeyError:
+        pass
     
     rows = _connection.execute(SELECT_SQL % field, (value,)).fetchall()
     
