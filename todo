@@ -2,15 +2,27 @@ Commands:
 ✓ ev
 ✓ list
 ✓ current
-✓ track
+- track
+	✓ species
+	✓ name
+	✓ pokerus
+	- item
 ✓ status
 - update
+	- species
+	- name
+	- pokerus
+	- item
 - battle
+	- ev update
+	- multiple at once
 
 
 Misc:
 ✓ Backup file before a save.
-- Configurable .ev-tracker location through --infile flag.
+✓ Configurable tracker file location through --infile flag.
+- Switch the EvDict to a separate pokedex module.
+	- Use a better data format than csv
 
 
 Future Commands:
