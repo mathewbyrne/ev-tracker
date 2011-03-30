@@ -5,9 +5,9 @@
 import os
 import csv
 import argparse
-import hashlib
 import json
 import difflib
+from shutil import copyfile
 
 
 class EvSet(object):
@@ -256,6 +256,7 @@ _tracker = Tracker.from_json(_tracker_filename, _ev_dict)
 
 
 def _save_tracker():
+    copyfile(_tracker_filename, _tracker_filename + '.bak')  # Create backup
     Tracker.to_json(_tracker, _tracker_filename)
 
 
