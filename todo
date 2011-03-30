@@ -8,6 +8,8 @@ General:
 	✓ Load EV data for pokemon from sqlite backend.
 	- Implement ev-tracker.py using the pokemon, pokedex modules.
 - Support for multiple forms, i.e. Meloetta, Wormadam etc.
+- Implement lazy loading of tracker data (i.e. for ev, help command)
+- Ditch automatically active tracked Pokemon.
 
 Commands:
 ✓ ev
@@ -33,4 +35,4 @@ Potential features:
 - history - record past battles/changes for a pokemon.
 - undo - undo the previous command.
 - Add an "interactive" mode for continuous input.
-- Python 3.0 compatability - easy since all dependencies are standard.
+- Python 3.0 compatability - should be easy since all dependencies are from the standard library.

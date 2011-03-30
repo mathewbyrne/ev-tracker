@@ -1,8 +1,5 @@
 
 
-import pokedex
-
-
 class EvSet(object):
     
     STATS = ['HP', 'Attack', 'Defense', 'Special Attack', 'Special Defense', 'Speed']
@@ -10,11 +7,16 @@ class EvSet(object):
     MAX_STAT = 255
     MAX_EV = 510
     
+    @classmethod
+    def from_dict(cls, dict):
+        evs = cls()
+        for stat, ev in dict.items():
+            if stat in EvSet.STATS and int(ev) > 0:
+                evs.evs[stat] = int(ev)
+        return evs
+    
     def __init__(self, evs={}):
         self.evs = {}
-        for stat, ev in evs.items():
-            if stat in EvSet.STATS and int(ev) > 0:
-                self.evs[stat] = int(ev)
     
     def __add__(self, other):
         evs = dict(self.evs)  # clone
@@ -51,7 +53,8 @@ class Pokemon(object):
     
     @classmethod
     def from_dict(cls, dict):
-        dict['species'] = pokedex.fetch(id=dict['species'])
+        import pokedex
+        dict['species'] = pokedex.fetch_by_id(dict['species'])
         dict['evs'] = EvSet.from_dict(dict['evs'])
         return cls(**dict)
 

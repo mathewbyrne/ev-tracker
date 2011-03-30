@@ -21,10 +21,7 @@ class Tracker(object):
             fp = open(filename, 'r')
             data = json.load(fp)
             for id, spec in data['pokemon'].items():
-                spec['species'] = pokedex.fetch(id=spec['species'])
-                spec['evs'] = EvSet(spec['evs'])
-                spec['id'] = int(id)
-                pokemon = Pokemon(**spec)
+                pokemon = Pokemon.from_dict(spec)
                 tracker.track(pokemon)
                 if 'active' in data and data['active'] == int(id):
                     tracker.active = pokemon
@@ -43,7 +40,7 @@ class Tracker(object):
         except NoActivePokemon:
             pass
         for id, pokemon in tracker.pokemon.items():
-            data['pokemon'][id] = pokemon.json()
+            data['pokemon'][id] = pokemon.to_dict()
         json.dump(data, fp)
         fp.close()
     
@@ -200,12 +197,12 @@ if __name__ == '__main__':
         args = _build_parser().parse_args()
         _tracker = Tracker.from_json(args.infile)
         args.func(args)
-    except NoSuchSpecies as e:
+    except pokedex.NoSuchSpecies as e:
         print 'No match found for \'%s\'.' % e.identifier
-        if isinstance(e, AmbiguousSpecies):
+        if isinstance(e, pokedex.AmbiguousSpecies):
             print 'Did you mean:'
             for match in e.matches:
-                print '  %s' % pokedex.fetch(name=match)
+                print '  %s' % match
     except NoActivePokemon:
         print 'No tracked Pokemon is marked as active.'
         print 'Set an active pokemon using the \'active --switch\' command.'
