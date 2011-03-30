@@ -3,170 +3,30 @@
 
 
 import os
-import csv
 import argparse
 import json
-import difflib
 from shutil import copyfile
 
-
-class EvSet(object):
-    
-    STATS = ['HP', 'Attack', 'Defense', 'Special Attack', 'Special Defense', 'Speed']
-    
-    MAX_STAT = 255
-    MAX_EV = 510
-    
-    def __init__(self, evs={}):
-        self.evs = {}
-        for stat, ev in evs.items():
-            if stat in EvSet.STATS and int(ev) > 0:
-                self.evs[stat] = int(ev)
-    
-    def __add__(self, other):
-        evs = dict(self.evs)  # clone
-        for stat, ev in other.evs:
-            evs[stat] = ev[stat] + ev
-        return EvSet(evs)
-    
-    def __str__(self):
-        ev_string = ['+%d %s' % (ev, stat) for stat, ev in self.evs.items()]
-        return ', '.join(ev_string)
-    
-    def verbose(self):
-        ev_string = ['%s: %d' % (stat, ev) for stat, ev in self.evs.items()]
-        if not len(ev_string):
-            return 'No EVs'
-        return '\n'.join(ev_string)
-    
-    def json(self):
-        return self.evs
-
-
-class Species(object):
-    
-    def __init__(self, number, name, evs):
-        self.number = int(number)
-        self.name = name
-        self.evs = evs if isinstance(evs, EvSet) else EvSet(evs)
-    
-    def __str__(self):
-        return '#%03d %-10s %s' % (self.number, self.name, self.evs)
-
-
-class NoSuchSpecies(Exception):
-    """Raised when a search for a Pokemon species fails."""
-    def __init__(self, identifier):
-        super(NoSuchSpecies, self).__init__()
-        self.identifier = identifier
-
-
-class AmbiguousSpecies(NoSuchSpecies):
-    """Raised when several matches are found for a Pokemon name search."""
-    def __init__(self, identifier, matches):
-        super(AmbiguousSpecies, self).__init__(identifier)
-        self.matches = matches
-
-
-class EvDict(object):
-    
-    @classmethod
-    def from_csv(cls, filename):
-        ev_dict = cls()
-        for row in csv.reader(open(filename, 'rb')):
-            number, name = row[:2]
-            evs = dict(zip(EvSet.STATS, map(int, row[2:8])))  # array_combine
-            ev_dict.add_species(Species(number, name, evs))
-        return ev_dict
-    
-    def __init__(self):
-        self._name = {}
-        self._number = {}
-    
-    def add_species(self, species):
-        self._name[species.name.lower()] = species
-        self._number[species.number] = species
-    
-    name = property(lambda self: self._name, doc="A mapping of Species names.")
-    number = property(lambda self: self._number, doc="A mapping of Species numbers.")
-    
-    def search(self, identifier):
-        """
-        Search for a Pokemon species by a string identifier. The identifier
-        can be a string or integer value corresponding to the name or number 
-        of a species. If the string is a name, the search will attempt to find
-        close matches as well as an exact match.
-        """
-        if identifier.isdigit():
-            try:
-                return self._number[int(identifier)]
-            except KeyError:
-                raise NoSuchSpecies(identifier)
-        else:
-            try:
-                return self._name[identifier.lower()]
-            except KeyError:
-                matches = difflib.get_close_matches(identifier, self._name.keys(), n=3)
-                if len(matches) == 0:
-                    raise NoSuchSpecies(identifier)
-                else:
-                    raise AmbiguousSpecies(identifier, matches)
-
-
-class Pokemon(object):
-    
-    def __init__(self, species, name=None, item=None, pokerus=False, evs=None, id=None):
-        self.id = id
-        self.species = species
-        self.name = name if name is not None else species.name
-        self.item = item
-        self.pokerus = pokerus
-        self.evs = EvSet() if evs is None else evs
-    
-    def __str__(self):
-        name = self.name
-        if self.species.name != name:
-            name = '%s (%s)' % (name, species.name)
-        if self.id is None:
-            return name
-        else:
-            return '%d %s' % (self.id, name)
-    
-    def status(self):
-        status = [str(self)]
-        if self.pokerus:
-            status.append('Pokerus')
-        if self.item:
-            status.append(self.item)
-        status.append(self.evs.verbose())
-        return '\n'.join(status)
-    
-    def listing(self, active):
-        padding = '* ' if self is active else '  '
-        return '%s%s' % (padding, self)
-    
-    def json(self):
-        return {'species': self.species.number, 'name': self.name,
-                'pokerus': self.pokerus, 'item': self.item,
-                'evs': self.evs.json()}
+from pokemon import Pokemon, EvSet
+import pokedex
 
 
 class Tracker(object):
     
     @classmethod
-    def from_json(cls, filename, ev_dict):
+    def from_json(cls, filename):
         tracker = cls()
         tracker.filename = filename
         try:
             fp = open(filename, 'r')
             data = json.load(fp)
             for id, spec in data['pokemon'].items():
-                spec['species'] = ev_dict.number[spec['species']]
+                spec['species'] = pokedex.fetch(id=spec['species'])
                 spec['evs'] = EvSet(spec['evs'])
                 spec['id'] = int(id)
                 pokemon = Pokemon(**spec)
                 tracker.track(pokemon)
-                if 'active' in data.keys() and data['active'] == int(id):
+                if 'active' in data and data['active'] == int(id):
                     tracker.active = pokemon
         except IOError:
             pass  # Ignore missing tracking file.
@@ -205,12 +65,12 @@ class Tracker(object):
         self._active = pokemon
     
     def get_pokemon(self, id):
-        if id not in self.pokemon.keys():
+        if id not in self.pokemon:
             raise NoTrackedPokemon(id)
         return self.pokemon[id]
     
     def unique_id(self):
-        while self.counter in self.pokemon.keys():
+        while self.counter in self.pokemon:
             self.counter += 1
         return self.counter
     
@@ -252,7 +112,6 @@ class NoTrackedPokemon(Exception):
         self.id = id
 
 
-_ev_dict = EvDict.from_csv('ev.csv')
 _tracker = None
 
 
@@ -263,7 +122,7 @@ def _save_tracker():
 
 
 def _cmd_ev(args):
-    print _ev_dict.search(args.species)
+    print pokedex.search(args.species)
 
 
 def _cmd_list(args):
@@ -271,7 +130,7 @@ def _cmd_list(args):
 
 
 def _cmd_track(args):
-    species = _ev_dict.search(args.species)
+    species = pokedex.search(args.species)
     pokemon = Pokemon(species=species, name=args.name, item=args.item,
                       pokerus=args.pokerus)
     _tracker.track(pokemon)
@@ -339,14 +198,14 @@ def _build_parser():
 if __name__ == '__main__':
     try:
         args = _build_parser().parse_args()
-        _tracker = Tracker.from_json(args.infile, _ev_dict)
+        _tracker = Tracker.from_json(args.infile)
         args.func(args)
     except NoSuchSpecies as e:
         print 'No match found for \'%s\'.' % e.identifier
         if isinstance(e, AmbiguousSpecies):
             print 'Did you mean:'
             for match in e.matches:
-                print '  %s' % _ev_dict.name[match]
+                print '  %s' % pokedex.fetch(name=match)
     except NoActivePokemon:
         print 'No tracked Pokemon is marked as active.'
         print 'Set an active pokemon using the \'active --switch\' command.'
