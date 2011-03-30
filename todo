@@ -1,3 +1,14 @@
+EV Tracker Issues, Features and Bugs:
+
+General:
+✓ Backup file before a save.
+✓ Configurable tracker file location through --infile flag.
+- Switch the EvDict to a separate pokedex module (pokedex branch)
+	✓ Use a better data format than csv
+	✓ Load EV data for pokemon from sqlite backend.
+	- Implement ev-tracker.py using the pokemon, pokedex modules.
+- Support for multiple forms, i.e. Meloetta, Wormadam etc.
+
 Commands:
 ✓ ev
 ✓ list
@@ -16,18 +27,10 @@ Commands:
 - battle
 	- ev update
 	- multiple at once
+- vitamin
 
-
-Misc:
-✓ Backup file before a save.
-✓ Configurable tracker file location through --infile flag.
-✓ Implement retrieving EVs in pokedex.
-- Switch the EvDict to a separate pokedex module.
-	- Use a better data format than csv
-- Support for multiple forms, i.e. Meloetta, Wormadam etc.
-
-
-Future Commands:
+Potential features:
 - history - record past battles/changes for a pokemon.
-- vitamin - boost EVs with vitamins, some business rules here to work with.
 - undo - undo the previous command.
+- Add an "interactive" mode for continuous input.
+- Python 3.0 compatability - easy since all dependencies are standard.
