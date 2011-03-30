@@ -38,10 +38,10 @@ class EvSet(object):
 
 class Species(object):
     
-    def __init__(self, id, name, evs=EvSet()):
+    def __init__(self, id, name, evs=None):
         self.id = int(id)
         self.name = name
-        self.evs = evs
+        self.evs = EvSet() if evs is None else evs
     
     def __str__(self):
         return '#%03d %-10s %s' % (self.id, self.name, self.evs)
@@ -55,13 +55,13 @@ class Pokemon(object):
         dict['evs'] = EvSet.from_dict(dict['evs'])
         return cls(**dict)
 
-    def __init__(self, species, name=None, item=None, pokerus=False, evs=EvSet(), id=None):
+    def __init__(self, species, name=None, item=None, pokerus=False, evs=None, id=None):
         self.id = id
         self.species = species
         self._name = name
         self.item = item
         self.pokerus = pokerus
-        self.evs = evs
+        self.evs = EvSet() if evs is None else evs
     
     @property
     def name(self):

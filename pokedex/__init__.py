@@ -61,18 +61,25 @@ def fetch(id=None, name=None):
     if id is not None:
         if id in _id_cache:
             return _id_cache[id]
-        rows = _connection.execute('%s%s' % (_SELECT_SQL, 'WHERE p.id = ?'),
+        rows = _connection.execute('%s %s' % (_SELECT_SQL, 'WHERE p.id = ?'),
                                    (id,)).fetchall()
         row = rows[0]
     
     elif name is not None:
         if name in _name_cache:
             return _name_cache[name]
-        rows = _connection.execute('%s%s' % (_SELECT_SQL, 'WHERE p.name = ?'),
+        rows = _connection.execute('%s %s' % (_SELECT_SQL, 'WHERE p.name = ?'),
                                    (name,)).fetchall()
         row = rows[0]
     
-    species = Species(id=row['id'], name=row['name'])
+    evs = EvSet({'HP': row['ev_hp'],
+                 'Attack': row['ev_attack'],
+                 'Defense': row['ev_defense'],
+                 'Special Attack': row['ev_special_attack'],
+                 'Special Defense': row['ev_special_defense'],
+                 'Speed': row['ev_speed']})
+    species = Species(id=row['id'], name=row['name'], evs=evs)
+    
     _cache(species)
     
     return species

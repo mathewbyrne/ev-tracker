@@ -21,10 +21,10 @@ Commands:
 Misc:
 ✓ Backup file before a save.
 ✓ Configurable tracker file location through --infile flag.
+✓ Implement retrieving EVs in pokedex.
 - Switch the EvDict to a separate pokedex module.
 	- Use a better data format than csv
 - Support for multiple forms, i.e. Meloetta, Wormadam etc.
-- Implement retrieving EVs in pokedex.
 
 
 Future Commands:
