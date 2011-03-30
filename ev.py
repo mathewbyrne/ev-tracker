@@ -156,7 +156,7 @@ class Tracker(object):
     @classmethod
     def from_json(cls, filename, ev_dict):
         tracker = cls()
-        
+        tracker.filename = filename
         try:
             fp = open(filename, 'r')
             data = json.load(fp)
@@ -174,7 +174,8 @@ class Tracker(object):
         return tracker
     
     @staticmethod
-    def to_json(tracker, filename):
+    def to_json(tracker, filename=None):
+        filename = tracker.filename if filename is None else filename
         fp = open(filename, 'w')
         data = {'pokemon': {}}
         try:
@@ -240,6 +241,7 @@ class NoActivePokemon(Exception):
     """
     pass
 
+
 class NoTrackedPokemon(Exception):
     """
     Raised when an id is requested from a Tracker but the Tracker does not
@@ -251,13 +253,13 @@ class NoTrackedPokemon(Exception):
 
 
 _ev_dict = EvDict.from_csv('ev.csv')
-_tracker_filename = os.path.expanduser('~/.ev-tracker')
-_tracker = Tracker.from_json(_tracker_filename, _ev_dict)
+_tracker = None
 
 
 def _save_tracker():
-    copyfile(_tracker_filename, _tracker_filename + '.bak')  # Create backup
-    Tracker.to_json(_tracker, _tracker_filename)
+    if os.path.exists(_tracker.filename):
+        copyfile(_tracker.filename,  _tracker.filename + '.bak')  # Create backup
+    Tracker.to_json(_tracker)
 
 
 def _cmd_ev(args):
@@ -301,6 +303,8 @@ def _cmd_remove(args):
 
 def _build_parser():
     parser = argparse.ArgumentParser(prog='ev', description='A small utility for keeping track of Effort Values while training Pokemon.')
+    parser.add_argument('--infile', '-i', default=os.path.expanduser('~/.ev-tracker'))
+    
     subparsers = parser.add_subparsers()
     
     ev_parser = subparsers.add_parser('ev', help='List Effort Values for a Pokemon')
@@ -335,6 +339,7 @@ def _build_parser():
 if __name__ == '__main__':
     try:
         args = _build_parser().parse_args()
+        _tracker = Tracker.from_json(args.infile, _ev_dict)
         args.func(args)
     except NoSuchSpecies as e:
         print 'No match found for \'%s\'.' % e.identifier

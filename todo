@@ -10,6 +10,7 @@ Commands:
 
 Misc:
 ✓ Backup file before a save.
+- Configurable .ev-tracker location through --infile flag.
 
 
 Future Commands:
