@@ -11,6 +11,10 @@ from pokemon import Pokemon, EvSet
 import pokedex
 
 
+TRACKER_FILENAME = '.ev-tracker'
+TRACKER_PATH = os.path.expanduser(os.path.join('~', TRACKER_FILENAME))
+
+
 class Tracker(object):
     
     @classmethod
@@ -20,10 +24,10 @@ class Tracker(object):
         try:
             fp = open(filename, 'r')
             data = json.load(fp)
-            for id, spec in data['pokemon'].items():
+            for spec in data['pokemon']:
                 pokemon = Pokemon.from_dict(spec)
                 tracker.track(pokemon)
-                if 'active' in data and data['active'] == int(id):
+                if 'active' in data and int(data['active']) == pokemon.id:
                     tracker.active = pokemon
         except IOError:
             pass  # Ignore missing tracking file.
@@ -34,13 +38,11 @@ class Tracker(object):
     def to_json(tracker, filename=None):
         filename = tracker.filename if filename is None else filename
         fp = open(filename, 'w')
-        data = {'pokemon': {}}
-        try:
+        data = {}
+        if tracker.has_active():
             data['active'] = tracker.active.id
-        except NoActivePokemon:
-            pass
-        for id, pokemon in tracker.pokemon.items():
-            data['pokemon'][id] = pokemon.to_dict()
+        data['pokemon'] = [pokemon.to_dict() for pokemon in tracker.pokemon.values()]
+        
         json.dump(data, fp)
         fp.close()
     
@@ -52,6 +54,9 @@ class Tracker(object):
     
     active = property(lambda self: self.get_active(),
                       lambda self, pokemon: self.set_active(pokemon))
+    
+    def has_active(self):
+        return self._active is not None
     
     def get_active(self):
         if self._active is None:
@@ -72,11 +77,7 @@ class Tracker(object):
         return self.counter
     
     def track(self, pokemon):
-        if pokemon.id is None:
-            pokemon.id = self.unique_id()
         self.pokemon[pokemon.id] = pokemon
-        if self._active is None:
-            self._active = pokemon
     
     def untrack(self, pokemon):
         del self.pokemon[pokemon.id]
@@ -128,8 +129,8 @@ def _cmd_list(args):
 
 def _cmd_track(args):
     species = pokedex.search(args.species)
-    pokemon = Pokemon(species=species, name=args.name, item=args.item,
-                      pokerus=args.pokerus)
+    pokemon = Pokemon(id=_tracker.unique_id(), species=species,
+                      name=args.name, item=args.item, pokerus=args.pokerus)
     _tracker.track(pokemon)
     print pokemon
     _save_tracker()
@@ -150,7 +151,15 @@ def _cmd_status(args):
     print pokemon.status()
 
 
-def _cmd_remove(args):
+def _cmd_update(args):
+    pass
+
+
+def _cmd_battle(args):
+    pass
+
+
+def _cmd_release(args):
     pokemon = _tracker.get_pokemon(args.id)
     _tracker.untrack(pokemon)
     print 'No longer tracking %s' % pokemon
@@ -158,8 +167,20 @@ def _cmd_remove(args):
 
 
 def _build_parser():
-    parser = argparse.ArgumentParser(prog='ev', description='A small utility for keeping track of Effort Values while training Pokemon.')
-    parser.add_argument('--infile', '-i', default=os.path.expanduser('~/.ev-tracker'))
+    parser = argparse.ArgumentParser(prog='ev',
+                                     description='''
+                                                 A small utility for keeping
+                                                 track of Effort Values while
+                                                 training Pokemon.
+                                                 ''')
+    parser.add_argument('--infile', '-i',
+                        dest='filename',
+                        default=TRACKER_PATH,
+                        help='''
+                             Optional location of the file to save tracking
+                             information to. This defaults to %s in your
+                             home directory
+                             ''' % TRACKER_FILENAME)
     
     subparsers = parser.add_subparsers()
     
@@ -185,9 +206,15 @@ def _build_parser():
     status_parser.add_argument('--id', '-i', type=int)
     status_parser.set_defaults(func=_cmd_status)
     
+    update_parser = subparsers.add_parser('update', help='Update a tracked Pokemon\'s details')
+    update_parser.set_defaults(func=_cmd_update)
+    
+    battle_parser = subparsers.add_parser('battle', help='Record a battle for a tracked Pokemon')
+    battle_parser.set_defaults(func=_cmd_battle)
+    
     release_parser = subparsers.add_parser('release', help='Stop tracking a Pokemon')
     release_parser.add_argument('id', type=int)
-    release_parser.set_defaults(func=_cmd_remove)
+    release_parser.set_defaults(func=_cmd_release)
     
     return parser
 
@@ -195,17 +222,17 @@ def _build_parser():
 if __name__ == '__main__':
     try:
         args = _build_parser().parse_args()
-        _tracker = Tracker.from_json(args.infile)
+        _tracker = Tracker.from_json(args.filename)
         args.func(args)
     except pokedex.NoSuchSpecies as e:
-        print 'No match found for \'%s\'.' % e.identifier
+        print "No match found for '%s'." % e.identifier
         if isinstance(e, pokedex.AmbiguousSpecies):
-            print 'Did you mean:'
+            print "Did you mean:"
             for match in e.matches:
-                print '  %s' % match
+                print "  %s" % match
     except NoActivePokemon:
-        print 'No tracked Pokemon is marked as active.'
-        print 'Set an active pokemon using the \'active --switch\' command.'
+        print "No tracked Pokemon is marked as active."
+        print "Set an active pokemon using the 'active --switch' command."
     except NoTrackedPokemon as e:
-        print 'No tracked Pokemon with id \'%d\' was found.' % e.id
+        print "No tracked Pokemon with id '%d' was found." % e.id
 

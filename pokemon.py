@@ -58,17 +58,24 @@ class Pokemon(object):
         dict['evs'] = EvSet.from_dict(dict['evs'])
         return cls(**dict)
 
-    def __init__(self, species, name=None, item=None, pokerus=False, evs=None, id=None):
-        self.id = id
+    def __init__(self, id, species, name=None, item=None, pokerus=False, evs=None):
+        self.id = int(id)
         self.species = species
-        self._name = name
+        self._name = None
+        self.name = name
         self.item = item
         self.pokerus = pokerus
         self.evs = EvSet() if evs is None else evs
     
-    @property
-    def name(self):
+    name = property(lambda self: self.get_name(),
+                    lambda self, name: self.set_name(name))
+    
+    def get_name(self):
         return self.species.name if self._name is None else self._name
+    
+    def set_name(self, name):
+        if name is not None and len(name.strip()) > 0:
+            self._name = name.strip()
     
     def __str__(self):
         name = self.name
@@ -95,5 +102,5 @@ class Pokemon(object):
     def to_dict(self):
         return {'species': self.species.id, 'name': self._name,
                 'pokerus': self.pokerus, 'item': self.item,
-                'evs': self.evs.to_dict()}
+                'evs': self.evs.to_dict(), 'id': self.id}
 
