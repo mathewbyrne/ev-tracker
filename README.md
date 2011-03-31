@@ -1,7 +1,6 @@
 # Pokémon EV Tracker
 
-A small utility for keeping track of Effort Values while training Pokemon. 
-Pokemon are added to the utility to be tracked
+A small utility for keeping track of Effort Values while training Pokemon.
 
 ## Usage examples
 
@@ -10,95 +9,99 @@ command. This takes either the Pokedex number of a species or the species
 name. If the name is provided but not found, a fuzzy search is done to return
 possible matches:
 	
-	ev.py ev 600
+	ev ev 600
 	>#600 Klang      +2 Defense
 	
-	ev.py ev charizard
+	ev ev charizard
 	>#006 Charizard  +3 Special Attack
 	
-	ev.py ev lia
-	>No match found for 'lia'
-	>Did you mean:
-	>  #249 Lugia      +3 Special Defense
-	>  #484 Palkia     +3 Special Attack
-	>  #166 Ledian     +2 Special Defense
+	ev ev lia
+	> No match found for 'lia'.
+	> Did you mean:
+	>   #484 Palkia     +3 Special Attack
+	>   #281 Kirlia     +2 Special Attack
+	>   #207 Gligar     +1 Defense
 
 To see which Pokemon you are currently tracking use the `list` command:
 
-	ev.py list
+	ev list
 	> No tracked Pokemon
 
 To track a new Pokemon use the `track` command. The integer value is the id
 of the newly tracked Pokemon:
 
-	ev.py track Magikarp --name=Ultrados --pokerus
+	ev track Magikarp --name=Ultrados --pokerus
 	> 1 Ultrados (Magikarp)
 
 You can also track a new Pokemon by it's Pokedex number.
 	
-	ev.py track 610
+	ev track 610
 	> 2 Axew
 
 The tracker always has an active Pokemon that other commands will operate on
-by default. You can see the current Pokemon using the `list` command and 
-looking for the `*` symbol, or using the `current` command.
+by default. You can see the current Pokemon using the `active` command, or the
+`list` command and looking for the `*` symbol.
 	
-	ev.py list
-	> * 1 Ultrados (Magikarp)
-	>   2 Axew
+	ev active
+	> No tracked Pokemon is marked as active.
+	> Set an active pokemon using the 'active --switch' command.
 	
-	ev.py current --switch=2
+	ev active --switch=2
 	> 2 Axew
+	
+	ev list
+	>   1 Ultrados (Magikarp)
+	>   2 Axew
 
-You can also switch the active Pokemon using the `current` command:
+You can switch the active Pokemon using the `active` command:
 
-	ev.py current --switch=1
+	ev active --switch=1
 	> 1 Ultrados (Magikarp)
 
 You can get the full status of the current Pokemon using the `status` command:
 
-	ev.py status
+	ev status
 	> 1 Ultrados (Magikarp)
 	> Pokerus
 	> No EVs
 
 To record battles and update EV values, use the `battle` command:
 
-	ev.py battle Lillipup
+	ev battle Lillipup
 	> Battled #506 Lillipup   +1 Attack
 	> 1 Ultrados - +2 Attack
 
 You can also record multiple battles using the `-n` or `--number` option of 
 the `battle` command:
 
-	ev.py battle Lillipup -n3
+	ev battle Lillipup -n3
 	> Battled 3 × #506 Lillipup   +1 Attack
 	> 1 Ultrados (Magikarp) - +6 Attack
 	
-	ev.py status
+	ev status
 	> 1 Ultrados (Magikarp)
 	> Pokerus
 	> Attack: 8
 
 To update the status of the current Pokemon, use the `update` command:
 	
-	ev.py update --item="Power Bracer"
+	ev update --item="Power Bracer"
 	> 1 Ultrados (Magikarp)
 
 As with the other commands, you can refer to a Pokemon species by number:
 	
-	ev.py battle Trubish
+	ev battle Trubish
 	> No match found for 'Trubish'
 	> Did you mean:
 	>   #568 Trubbish   +1 Speed
 	
-	ev.py battle 568
+	ev battle 568
 	> Battled #568 Trubbish  +1 Speed
 	> 1 Ultrados (Magikarp) - +8 Attack, +2 Speed
 
 To stop tracking a Pokemon, use the `release` command:
 	
-	ev.py release 2
+	ev release 2
 	> Stopped tracking Axew
 
 ## EV Calculations
@@ -106,7 +109,9 @@ To stop tracking a Pokemon, use the `release` command:
 I'm still new to Pokemon EV training, but Effort Values for each battle are
 calculated as such:
 
-	ev[stat] = (pokemon.evs[stat] + item.evs[stat]) * pokerus
+	ev[stat] = max(ev[stat] + (pokemon.evs[stat] + item.evs[stat]) * pokerus, 255)
+
+The total EVs for a Pokemon are also capped at 510.
 
 ## Storage
 
