@@ -152,11 +152,11 @@ def _cmd_status(args):
 
 
 def _cmd_update(args):
-    pass
+    raise NotImplementedError('update command is not yet implemented.')
 
 
 def _cmd_battle(args):
-    pass
+    raise NotImplementedError('battle command is not yet implemented.')
 
 
 def _cmd_release(args):

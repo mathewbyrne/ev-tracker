@@ -3,10 +3,10 @@ EV Tracker Issues, Features and Bugs:
 General:
 ✓ Backup file before a save.
 ✓ Configurable tracker file location through --infile flag.
-- Switch the EvDict to a separate pokedex module (pokedex branch)
+✓ Switch the EvDict to a separate pokedex module (pokedex branch)
 	✓ Use a better data format than csv
 	✓ Load EV data for pokemon from sqlite backend.
-	- Implement ev-tracker.py using the pokemon, pokedex modules.
+	✓ Implement ev-tracker.py using the pokemon, pokedex modules.
 - Support for multiple forms, i.e. Meloetta, Wormadam etc.
 - Implement lazy loading of tracker data (i.e. for ev, help command)
 - Ditch automatically active tracked Pokemon.
