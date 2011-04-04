@@ -156,7 +156,16 @@ def _cmd_update(args):
 
 
 def _cmd_battle(args):
-    raise NotImplementedError('battle command is not yet implemented.')
+    species = pokedex.search(args.species)
+    if args.id is None:
+        pokemon = _tracker.active
+    else:
+        pokemon = _tracker.get_pokemon(args.id)
+    
+    pokemon.battle(species)
+    
+    print evs
+    print pokemon
 
 
 def _cmd_release(args):
@@ -210,6 +219,8 @@ def _build_parser():
     update_parser.set_defaults(func=_cmd_update)
     
     battle_parser = subparsers.add_parser('battle', help='Record a battle for a tracked Pokemon')
+    track_parser.add_argument('species', help='Name of number of Pokemon species to battle')
+    status_parser.add_argument('--id', '-i', type=int)
     battle_parser.set_defaults(func=_cmd_battle)
     
     release_parser = subparsers.add_parser('release', help='Stop tracking a Pokemon')

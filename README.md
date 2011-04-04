@@ -1,6 +1,7 @@
 # Pokémon EV Tracker
 
-A small utility for keeping track of Effort Values while training Pokemon.
+A small command line utility for keeping track of Effort Values while training
+Pokemon.
 
 ## Usage examples
 
@@ -117,8 +118,12 @@ The total EVs for a Pokemon are also capped at 510.
 
 Currently the tracker saves after every operation to a file your User 
 directory called `.ev-tracker`. This will be a different location depending on 
-your operating system. The file itself is in JSON format and therefore is 
-fairly trivial to include in other projects.
+your operating system. If you would like to use a custom tracker file 
+location, set the `--infile` option before the sub-command. See `ev --help`
+for more information.
+
+The tracker file is stored as JSON and is fairly trivial to include in other
+projects, or directly using Javascript.
 
 ## Issues, Contact etc.
 `ev-tracker` was hacked together very quickly to provide a fairly minimal set

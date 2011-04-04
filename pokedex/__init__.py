@@ -73,12 +73,12 @@ def _fetch(field, value, sql):
     row = rows[0]
     
     # Build the Species object from the returned data.
-    evs = EvSet.from_dict({'HP': row['ev_hp'],
-                           'Attack': row['ev_attack'],
-                           'Defense': row['ev_defense'],
-                           'Special Attack': row['ev_special_attack'],
-                           'Special Defense': row['ev_special_defense'],
-                           'Speed': row['ev_speed']})
+    evs = EvSet(hp=row['ev_hp'],
+                attack=row['ev_attack'],
+                defense=row['ev_defense'],
+                special_attack=row['ev_special_attack'],
+                special_defense=row['ev_special_defense'],
+                speed=row['ev_speed'])
     species = Species(id=row['id'], name=row['name'], evs=evs)
     
     _cache.add(species)
